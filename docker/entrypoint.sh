@@ -112,6 +112,53 @@ fi
 
 log "Starting: mosdns $* (config: $CONFIG)"
 
+# ---- version info for the stats page ----
+# mosdns version is authoritative (it is baked into the binary via -ldflags),
+# so prefer it over the build args and fall back to those.
+STATS_DIR="${STATS_DIR:-/usr/share/mosdns-stats}"
+if [ -d "$STATS_DIR" ]; then
+    v_bin=""
+    [ -x /usr/bin/mosdns ] && v_bin="$(/usr/bin/mosdns version 2>/dev/null || true)"
+    if [ -n "$v_bin" ]; then
+        # Authoritative: the binary already carries the -rNN patch revision.
+        v="$v_bin"
+    else
+        v="${MOSDNS_VERSION:-unknown}"
+        case "$v" in v*) ;; *) v="v$v" ;; esac
+        [ -n "${MOSDNS_RELEASE:-}" ] && v="$v-r${MOSDNS_RELEASE}"
+    fi
+    v_tmp="$(mktemp /tmp/mosdns-ver.XXXXXX)"
+    printf '{"mosdns":"%s","release":"%s","built":"%s"}\n' \
+        "$(printf '%s' "$v" | tr -d '\000-\037\"')" \
+        "$(printf '%s' "${MOSDNS_RELEASE:-}" | tr -d '\000-\037\"')" \
+        "$(printf '%s' "${BUILD_DATE:-}" | tr -d '\000-\037\"')" > "$v_tmp"
+    mv -f "$v_tmp" "$STATS_DIR/version.json"
+    log "mosdns version: $v (release ${MOSDNS_RELEASE:-?})"
+fi
+
+# ---- dnscrypt-proxy metrics collector (server-side fetch) ----
+# dnscrypt-proxy serves no CORS headers, so the browser cannot read it directly;
+# this loop pulls the JSON into the page's own origin instead. Credentials stay
+# in the container and are never handed to the browser.
+if [ -n "${DNSCRYPT_METRICS_URL:-}" ] && [ -x /usr/local/bin/dnscrypt-stats ]; then
+    (
+        set +e
+        refresh="${DNSCRYPT_REFRESH:-10}"
+        case "$refresh" in ''|*[!0-9]*)
+            log "WARNING: invalid DNSCRYPT_REFRESH '$refresh', using 10."
+            refresh=10
+            ;;
+        esac
+        log "dnscrypt-proxy collector started (every ${refresh}s)."
+        while true; do
+            /usr/local/bin/dnscrypt-stats >/dev/null 2>&1
+            sleep "$refresh"
+        done
+    ) &
+elif [ -n "${DNSCRYPT_STATS_SHOW:-1}" ] && [ "${DNSCRYPT_STATS_SHOW}" != "0" ]; then
+    log "dnscrypt-proxy collector disabled (set DNSCRYPT_METRICS_URL to enable)."
+fi
+
 # --- next_wait start ---
 # next_wait "HH:MM[,HH:MM...]" -> prints seconds until the next occurrence.
 # Pure arithmetic on date +%H/%M/%S (no date -d, portable across GNU/busybox).

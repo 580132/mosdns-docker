@@ -83,6 +83,10 @@ FROM alpine:3.21
 LABEL org.opencontainers.image.title="mosdns (sbwml patched, no LuCI)"
 LABEL org.opencontainers.image.source="https://github.com/sbwml/luci-app-mosdns"
 LABEL org.opencontainers.image.description="Patched mosdns DNS forwarder without OpenWrt/LuCI dependencies"
+# Re-declared so the runtime can expose build metadata to the stats page.
+ARG MOSDNS_VERSION
+ARG MOSDNS_RELEASE
+ARG BUILD_DATE
 
 RUN apk add --no-cache ca-certificates curl tzdata darkhttpd \
     && rm -rf /var/cache/apk/*
@@ -96,11 +100,12 @@ COPY docker/config.yaml /etc/mosdns/config.yaml
 COPY --from=mosdns-builder /out/rules/ /etc/mosdns/rule/
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/update-data.sh /usr/local/bin/update-data
+COPY docker/dnscrypt-stats.sh /usr/local/bin/dnscrypt-stats
 # Standalone stats dashboard (replaces the LuCI statistics.js view).
 # Served by darkhttpd; the page calls the stats_api HTTP endpoints directly
 # (CORS is already Access-Control-Allow-Origin: * in the patched plugin).
 COPY docker/stats/ /usr/share/mosdns-stats/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/update-data \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/update-data /usr/local/bin/dnscrypt-stats \
     && mkdir -p /var/lib/mosdns /usr/share/v2ray /var/log
 
 ENV CONFIG=/etc/mosdns/config.yaml \
@@ -117,7 +122,14 @@ ENV CONFIG=/etc/mosdns/config.yaml \
     AD_SOURCES="" \
     AUTO_UPDATE=1 \
     UPDATE_CHECK_INTERVAL=86400 \
-    UPDATE_AT=""
+    UPDATE_AT="" \
+    DNSCRYPT_METRICS_URL="" \
+    DNSCRYPT_USER="" \
+    DNSCRYPT_PASS="" \
+    DNSCRYPT_REFRESH=10 \
+    MOSDNS_VERSION=${MOSDNS_VERSION} \
+    MOSDNS_RELEASE=${MOSDNS_RELEASE} \
+    BUILD_DATE=${BUILD_DATE}
 
 EXPOSE 53/udp 53/tcp 9091/tcp 8080/tcp
 

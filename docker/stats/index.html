@@ -45,10 +45,29 @@ header { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin
 h1 { font-size:1.3rem; margin:0; letter-spacing:.2px; }
 h1 .dot { color:var(--blue); }
 .status { display:flex; align-items:center; gap:7px; margin-left:auto; font-size:.82rem; color:var(--muted); }
+.ver { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.74rem; color:var(--muted);
+  background:var(--panel); border:1px solid var(--border); border-radius:99px; padding:2px 10px;
+  white-space:nowrap; }
+.ver.hide { display:none; }
 .led { width:8px; height:8px; border-radius:50%; background:var(--faint); flex:none; }
 .led.ok { background:var(--green); box-shadow:0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); animation:pulse 2s ease-in-out infinite; }
 .led.bad { background:var(--red); box-shadow:0 0 0 3px color-mix(in srgb, var(--red) 22%, transparent); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+/* ---------- 标签页 ---------- */
+.tabs { display:flex; gap:4px; margin:0 0 16px; border-bottom:1px solid var(--border); }
+.tabs button { border:0; background:none; border-radius:0; padding:9px 14px; color:var(--muted);
+  font-size:.9rem; font-weight:550; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tabs button:hover { color:var(--text); }
+.tabs button.on { color:var(--blue); border-bottom-color:var(--blue); }
+.tabs .tag { font-size:.68rem; padding:1px 6px; border-radius:99px; margin-left:6px;
+  background:var(--red-soft); color:var(--red); font-weight:600; }
+.banner { display:none; border:1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  background:var(--amber-soft); color:var(--amber); border-radius:var(--radius);
+  padding:10px 14px; margin-bottom:16px; font-size:.85rem; }
+.banner.show { display:block; }
+.banner.bad { border-color:color-mix(in srgb, var(--red) 45%, transparent);
+  background:var(--red-soft); color:var(--red); }
 
 h2 { font-size:.82rem; font-weight:650; text-transform:uppercase; letter-spacing:.6px;
   color:var(--muted); margin:0 0 10px; }
@@ -196,14 +215,21 @@ details[open] summary { margin-bottom:6px; }
 
   <header>
     <h1><span class="dot">●</span> mosdns 统计</h1>
+    <span class="ver" id="verBadge" title=""></span>
     <div class="status">
       <span class="led" id="led"></span>
       <span id="conn">连接中…</span>
     </div>
   </header>
 
+  <nav class="tabs">
+    <button id="tabMos" type="button" class="on">mosdns</button>
+    <button id="tabDc" type="button" hidden>dnscrypt-proxy<span class="tag" id="dcTag" hidden>断线</span></button>
+  </nav>
+
   <div id="err"></div>
 
+  <section id="paneMos">
   <!-- 总览 -->
   <div class="cards">
     <div class="card" style="--accent:var(--blue)">
@@ -309,6 +335,68 @@ details[open] summary { margin-bottom:6px; }
       <span id="pageInfo"></span>
     </div>
   </div>
+  </section>
+
+  <!-- dnscrypt-proxy -->
+  <section id="paneDc" hidden>
+    <div class="banner" id="dcBanner"></div>
+
+    <div class="cards">
+      <div class="card" style="--accent:var(--blue)">
+        <div class="k">总查询</div><div class="v" id="dcTotal">–</div>
+        <div class="s" id="dcQps">–</div>
+      </div>
+      <div class="card" style="--accent:var(--green)">
+        <div class="k">缓存命中率</div><div class="v" id="dcCacheRatio">–</div>
+        <div class="s" id="dcCacheDetail">–</div>
+        <div class="meter"><i id="dcBarCache" style="width:0"></i></div>
+      </div>
+      <div class="card" style="--accent:var(--red)">
+        <div class="k">已拦截</div><div class="v" id="dcBlocked">–</div>
+        <div class="s" id="dcBlockedPct">–</div>
+      </div>
+      <div class="card" style="--accent:var(--amber)">
+        <div class="k">平均延迟</div><div class="v" id="dcLatency">–</div>
+        <div class="s" id="dcLatencyDetail">–</div>
+      </div>
+      <div class="card" style="--accent:var(--muted)">
+        <div class="k">运行时长</div><div class="v" id="dcUptime">–</div>
+        <div class="s" id="dcBuild"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>加密 DNS 服务器</h2><div class="spacer"></div>
+        <span class="faint" style="font-size:.78rem" id="dcServersNote"></span></div>
+      <div class="tablewrap" style="max-height:none">
+        <table>
+          <thead><tr>
+            <th>服务器</th><th style="width:70px">协议</th><th style="width:110px">状态</th>
+            <th class="num" style="width:90px">成功率</th><th class="num" style="width:100px">查询</th>
+            <th class="num" style="width:96px">失败</th><th class="num" style="width:96px">平均延迟</th>
+          </tr></thead>
+          <tbody id="dcServers"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="ranks">
+      <div class="panel">
+        <div class="panel-head"><h2>热门域名</h2><div class="spacer"></div>
+          <span class="faint" style="font-size:.75rem" id="dcDomainsNote"></span></div>
+        <ul class="rank" id="dcDomains"></ul>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>查询类型</h2></div>
+        <ul class="rank" id="dcTypes"></ul>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>缓存状态</h2></div>
+      <div id="dcCache" style="font-size:.85rem"></div>
+    </div>
+  </section>
 
   <footer>
     <details>
@@ -522,6 +610,150 @@ function openDetail(item) {
 }
 function closeDetail() { $('overlay').classList.remove('open'); }
 
+/* ---------------- 版本信息 ---------------- */
+async function refreshVersion() {
+  const b = $('verBadge');
+  try {
+    const r = await fetch('version.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const v = await r.json();
+    // 完整版本串（含 -rNN 补丁修订）已在服务端拼好，这里直接显示，避免重复拼接。
+    $('verBadge').textContent = v.mosdns || 'unknown';
+    $('verBadge').title = 'mosdns 版本'
+      + (v.release ? '\n补丁修订 r' + v.release : '')
+      + (v.built ? '\n镜像构建于 ' + v.built : '');
+    $('verBadge').classList.remove('hide');
+  } catch (_) {
+    // 没有 version.json（例如未使用本仓库镜像构建）时静默隐藏，不打扰使用。
+    b.classList.add('hide');
+  }
+}
+
+/* ---------------- 标签页 ---------------- */
+function showTab(which) {
+  const isDc = which === 'dc';
+  $('paneMos').hidden = isDc;
+  $('paneDc').hidden = !isDc;
+  $('tabMos').classList.toggle('on', !isDc);
+  $('tabDc').classList.toggle('on', isDc);
+  localStorage.setItem('mosdns_tab', which);
+}
+$('tabMos').onclick = () => showTab('mos');
+$('tabDc').onclick = () => { showTab('dc'); refreshDnscrypt(); };
+
+/* ---------------- dnscrypt-proxy ---------------- */
+function fmtUptime(s) {
+  s = Math.max(0, Math.floor(s || 0));
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  if (d) return d + ' 天 ' + h + ' 小时';
+  if (h) return h + ' 小时 ' + m + ' 分';
+  return m + ' 分 ' + (s % 60) + ' 秒';
+}
+// dnscrypt-proxy reports cache_hit_ratio as a 0..1 decimal, not a percentage.
+const pct = (r) => (Math.round((r || 0) * 1000) / 10);
+const STATUS_PILL = {
+  healthy: ['ok', '正常'], degraded: ['cache', '降级'], failing: ['block', '失败'],
+  stale: ['', '过期'], warming: ['', '预热中'], idle: ['', '空闲']
+};
+
+function showDcBanner(msg, bad) {
+  const b = $('dcBanner');
+  if (!msg) { b.className = 'banner'; b.textContent = ''; return; }
+  b.className = 'banner show' + (bad ? ' bad' : '');
+  b.textContent = msg;
+}
+function renderDnscrypt(d) {
+  const total = d.total_queries || 0;
+  const ratio = d.cache_hit_ratio || 0;
+  $('dcTotal').textContent = fmt(total);
+  $('dcQps').innerHTML = '<span class="pill ok">● 实时</span> ' + (d.queries_per_second || 0) + ' QPS';
+
+  $('dcCacheRatio').innerHTML = pct(ratio) + '<span class="u">%</span>';
+  $('dcCacheDetail').textContent = '命中 ' + fmt(d.cache_hits) + ' / 未命中 ' + fmt(d.cache_misses);
+  $('dcBarCache').style.width = clamp(ratio * 100, 0, 100) + '%';
+
+  $('dcBlocked').textContent = fmt(d.blocked_queries);
+  $('dcBlockedPct').textContent = total ? '占比 ' + (Math.round((d.blocked_queries || 0) / total * 10000) / 100) + '%' : '—';
+
+  $('dcLatency').innerHTML = (d.avg_response_time || 0) + '<span class="u">ms</span>';
+  $('dcLatencyDetail').textContent = '平均响应时间';
+
+  $('dcUptime').textContent = fmtUptime(d.uptime_seconds);
+  $('dcBuild').textContent = '采集于 ' + new Date(d.generated_at || Date.now()).toLocaleTimeString('zh-CN', { hour12: false });
+
+  // 上游加密 DNS 服务器
+  const rs = d.resolver_health || [];
+  $('dcServers').innerHTML = rs.length ? rs.map((r) => {
+    const p = STATUS_PILL[r.status] || ['', r.status || '未知'];
+    const cls = p[0] ? ' class="' + p[0] + '"' : '';
+    const lat = (r.avg_response_ms != null) ? r.avg_response_ms.toFixed(1) : '—';
+    return '<tr><td class="wrap mono">' + esc(r.name || '-') + '</td>'
+      + '<td><span class="qtype">' + esc(r.proto || '-') + '</span></td>'
+      + '<td><span class="pill' + cls + '">' + esc(p[1]) + '</span></td>'
+      + '<td class="num">' + pct(r.success_rate).toFixed(1) + '%</td>'
+      + '<td class="num">' + fmt(r.total_queries) + '</td>'
+      + '<td class="num">' + fmt(r.failed_queries) + '</td>'
+      + '<td class="num mono">' + lat + '</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">暂无服务器数据</td></tr>';
+  $('dcServersNote').textContent = rs.length ? rs.length + ' 台' : '';
+
+  // 热门域名 / 查询类型（privacy_level=2 时 dnscrypt-proxy 不提供）
+  const td = d.top_domains || [];
+  renderRank('dcDomains', td, 'domain', 'var(--blue-soft)');
+  $('dcDomainsNote').textContent = td.length ? '' : '（privacy_level ≥ 2 时不提供）';
+  const qt = d.query_types || [];
+  renderRank('dcTypes', qt, 'type', 'var(--green-soft)');
+
+  // 缓存状态
+  const cs = d.cache_stats || {};
+  $('dcCache').innerHTML = cs.enabled
+    ? '<div class="d-meta" style="margin:0">'
+      + '<div class="item"><div class="k">条目</div><div class="v">' + fmt(cs.entries) + '</div></div>'
+      + '<div class="item"><div class="k">容量</div><div class="v">' + fmt(cs.capacity) + '</div></div>'
+      + '<div class="item"><div class="k">配置大小</div><div class="v">' + fmt(cs.configured_size) + '</div></div>'
+      + '<div class="item"><div class="k">TTL 范围</div><div class="v">'
+      + esc(cs.min_ttl) + 's ~ ' + esc(cs.max_ttl) + 's</div></div>'
+      + '</div>'
+    : '<div class="empty">dnscrypt-proxy 未启用缓存</div>';
+}
+
+async function refreshDnscrypt() {
+  let meta;
+  try {
+    const r = await fetch('dnscrypt.meta', { cache: 'no-store' });
+    if (r.status === 404) {          // 未配置 -> 隐藏整个标签页
+      $('tabDc').hidden = true;
+      if (!$('paneDc').hidden) showTab('mos');
+      return;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    meta = await r.json();
+  } catch (e) {
+    $('tabDc').hidden = false;
+    showDcBanner('读取采集状态失败：' + e.message, true);
+    return;
+  }
+
+  $('tabDc').hidden = false;
+  const age = Math.max(0, Math.round(Date.now() / 1000) - (meta.ts || 0));
+  if (!meta.ok) {
+    showDcBanner('采集失败：' + (meta.err || '未知原因') + '（下方为最后一次成功获取的数据）', true);
+  } else if (age > 120) {
+    showDcBanner('数据已有 ' + fmtUptime(age) + ' 未更新，请检查 dnscrypt-proxy 是否可达。', true);
+  } else {
+    showDcBanner(null);
+  }
+  $('dcTag').hidden = !!meta.ok;
+
+  try {
+    const r = await fetch('dnscrypt.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    renderDnscrypt(await r.json());
+  } catch (e) {
+    showDcBanner('暂时没有可用数据：' + e.message, true);
+  }
+}
+
 async function refreshAll() {
   try {
     await Promise.all([refreshStats(), refreshTop(), refreshHistory(), refreshLogs()]);
@@ -569,8 +801,16 @@ $('dClose').onclick = closeDetail;
 $('overlay').addEventListener('click', (ev) => { if (ev.target === $('overlay')) closeDetail(); });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeDetail(); });
 
+refreshVersion();
 refreshAll();
-setInterval(() => { if ($('auto').checked) refreshAll(); }, REFRESH_MS);
+refreshDnscrypt();
+// 自动刷新关闭时，切到 dnscrypt 标签仍会即时拉一次，避免看到陈旧数据。
+setInterval(() => {
+  if (!$('auto').checked) return;
+  refreshAll();
+  refreshDnscrypt();
+}, REFRESH_MS);
+if (localStorage.getItem('mosdns_tab') === 'dc') showTab('dc');
 </script>
 </body>
 </html>

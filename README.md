@@ -37,6 +37,24 @@ GHCR 已有构建好的镜像：`ghcr.io/580132/mosdns:5`
 | `AUTO_UPDATE` / `UPDATE_CHECK_INTERVAL` | `1` / `86400` | 后台热更新开关与周期（秒），`0` 关闭循环 |
 | `UPDATE_AT` | 空 | 挂钟模式：每天这些本地时间点更新（如 `03:00,15:00`），覆盖间隔循环；容器时区生效（默认 UTC，可设 `TZ`） |
 
+## dnscrypt-proxy 统计（可选）
+
+在 mosdns 统计页新增一个 `dnscrypt-proxy` 标签页，读取 dnscrypt-proxy Monitoring UI 的 JSON 接口，显示总查询/QPS/缓存命中率/拦截/延迟/运行时长，以及加密 DNS 服务器健康度、热门域名、查询类型分布和缓存状态。
+
+```yaml
+environment:
+  DNSCRYPT_METRICS_URL: "http://192.168.1.35:8080/api/metrics"
+  DNSCRYPT_USER: "admin"
+  DNSCRYPT_PASS: "your-password"
+  DNSCRYPT_REFRESH: "10"     # 秒
+```
+
+**为什么是容器内取数而不是浏览器直连**：dnscrypt-proxy 的 Monitoring UI 不发送任何 CORS 响应头（其 handler 只设置 `Cache-Control` 和 `Content-Type`），浏览器跨域请求必然被拦截；且它使用 HTTP Basic Auth。所以容器用 `curl` 定时拉取并落盘为 JSON，页面同源读取——**账号密码只存在于容器环境变量中，不会进入浏览器**。
+
+未配置时该标签页自动隐藏。取数失败会保留最后一次成功的数据并在页面顶部提示，不会白屏。手动触发：`docker exec mosdns dnscrypt-stats`。
+
+> 注意：dnscrypt-proxy 的 `privacy_level = 2` 时不提供域名与单条查询数据，热门域名会显示为空。
+
 ## 广告拦截
 
 ```yaml
