@@ -347,7 +347,7 @@ details[open] summary { margin-bottom:6px; }
         <div class="s" id="dcQps">–</div>
       </div>
       <div class="card" style="--accent:var(--green)">
-        <div class="k">缓存命中率</div><div class="v" id="dcCacheRatio">–</div>
+        <div class="k">缓存命中</div><div class="v" id="dcCacheRatio">–</div>
         <div class="s" id="dcCacheDetail">–</div>
         <div class="meter"><i id="dcBarCache" style="width:0"></i></div>
       </div>
@@ -357,11 +357,7 @@ details[open] summary { margin-bottom:6px; }
       </div>
       <div class="card" style="--accent:var(--amber)">
         <div class="k">平均延迟</div><div class="v" id="dcLatency">–</div>
-        <div class="s" id="dcLatencyDetail">–</div>
-      </div>
-      <div class="card" style="--accent:var(--muted)">
-        <div class="k">运行时长</div><div class="v" id="dcUptime">–</div>
-        <div class="s" id="dcBuild"></div>
+        <div class="s">平均响应时间</div>
       </div>
     </div>
 
@@ -371,30 +367,18 @@ details[open] summary { margin-bottom:6px; }
       <div class="tablewrap" style="max-height:none">
         <table>
           <thead><tr>
-            <th>服务器</th><th style="width:70px">协议</th><th style="width:110px">状态</th>
-            <th class="num" style="width:90px">成功率</th><th class="num" style="width:100px">查询</th>
-            <th class="num" style="width:96px">失败</th><th class="num" style="width:96px">平均延迟</th>
+            <th>服务器</th><th style="width:80px">协议</th><th style="width:110px">状态</th>
+            <th class="num" style="width:100px">成功率</th>
           </tr></thead>
           <tbody id="dcServers"></tbody>
         </table>
       </div>
     </div>
 
-    <div class="ranks">
-      <div class="panel">
-        <div class="panel-head"><h2>热门域名</h2><div class="spacer"></div>
-          <span class="faint" style="font-size:.75rem" id="dcDomainsNote"></span></div>
-        <ul class="rank" id="dcDomains"></ul>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h2>查询类型</h2></div>
-        <ul class="rank" id="dcTypes"></ul>
-      </div>
-    </div>
-
     <div class="panel">
-      <div class="panel-head"><h2>缓存状态</h2></div>
-      <div id="dcCache" style="font-size:.85rem"></div>
+      <div class="panel-head"><h2>热门域名</h2><div class="spacer"></div>
+        <span class="faint" style="font-size:.78rem" id="dcDomainsNote"></span></div>
+      <ul class="rank" id="dcDomains"></ul>
     </div>
   </section>
 
@@ -676,45 +660,26 @@ function renderDnscrypt(d) {
   $('dcBlockedPct').textContent = total ? '占比 ' + (Math.round((d.blocked_queries || 0) / total * 10000) / 100) + '%' : '—';
 
   $('dcLatency').innerHTML = (d.avg_response_time || 0) + '<span class="u">ms</span>';
-  $('dcLatencyDetail').textContent = '平均响应时间';
 
-  $('dcUptime').textContent = fmtUptime(d.uptime_seconds);
-  $('dcBuild').textContent = '采集于 ' + new Date(d.generated_at || Date.now()).toLocaleTimeString('zh-CN', { hour12: false });
+  // 运行时长与采集时间放在服务器面板的角落，不单独占一张卡。
+  $('dcServersNote').textContent = '运行 ' + fmtUptime(d.uptime_seconds)
+    + ' · 采集于 ' + new Date(d.generated_at || Date.now()).toLocaleTimeString('zh-CN', { hour12: false });
 
-  // 上游加密 DNS 服务器
+  // 上游加密 DNS 服务器：只保留判断健康度所必需的字段
   const rs = d.resolver_health || [];
   $('dcServers').innerHTML = rs.length ? rs.map((r) => {
     const p = STATUS_PILL[r.status] || ['', r.status || '未知'];
     const cls = p[0] ? ' class="' + p[0] + '"' : '';
-    const lat = (r.avg_response_ms != null) ? r.avg_response_ms.toFixed(1) : '—';
     return '<tr><td class="wrap mono">' + esc(r.name || '-') + '</td>'
       + '<td><span class="qtype">' + esc(r.proto || '-') + '</span></td>'
       + '<td><span class="pill' + cls + '">' + esc(p[1]) + '</span></td>'
-      + '<td class="num">' + pct(r.success_rate).toFixed(1) + '%</td>'
-      + '<td class="num">' + fmt(r.total_queries) + '</td>'
-      + '<td class="num">' + fmt(r.failed_queries) + '</td>'
-      + '<td class="num mono">' + lat + '</td></tr>';
-  }).join('') : '<tr><td colspan="7" class="empty">暂无服务器数据</td></tr>';
-  $('dcServersNote').textContent = rs.length ? rs.length + ' 台' : '';
+      + '<td class="num">' + pct(r.success_rate).toFixed(1) + '%</td></tr>';
+  }).join('') : '<tr><td colspan="4" class="empty">暂无服务器数据</td></tr>';
 
-  // 热门域名 / 查询类型（privacy_level=2 时 dnscrypt-proxy 不提供）
+  // 热门域名（privacy_level >= 2 时 dnscrypt-proxy 不提供）
   const td = d.top_domains || [];
   renderRank('dcDomains', td, 'domain', 'var(--blue-soft)');
-  $('dcDomainsNote').textContent = td.length ? '' : '（privacy_level ≥ 2 时不提供）';
-  const qt = d.query_types || [];
-  renderRank('dcTypes', qt, 'type', 'var(--green-soft)');
-
-  // 缓存状态
-  const cs = d.cache_stats || {};
-  $('dcCache').innerHTML = cs.enabled
-    ? '<div class="d-meta" style="margin:0">'
-      + '<div class="item"><div class="k">条目</div><div class="v">' + fmt(cs.entries) + '</div></div>'
-      + '<div class="item"><div class="k">容量</div><div class="v">' + fmt(cs.capacity) + '</div></div>'
-      + '<div class="item"><div class="k">配置大小</div><div class="v">' + fmt(cs.configured_size) + '</div></div>'
-      + '<div class="item"><div class="k">TTL 范围</div><div class="v">'
-      + esc(cs.min_ttl) + 's ~ ' + esc(cs.max_ttl) + 's</div></div>'
-      + '</div>'
-    : '<div class="empty">dnscrypt-proxy 未启用缓存</div>';
+  $('dcDomainsNote').textContent = td.length ? 'Top ' + td.length : '（privacy_level ≥ 2 时不提供）';
 }
 
 async function refreshDnscrypt() {
