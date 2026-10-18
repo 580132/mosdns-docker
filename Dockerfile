@@ -100,12 +100,11 @@ COPY docker/config.yaml /etc/mosdns/config.yaml
 COPY --from=mosdns-builder /out/rules/ /etc/mosdns/rule/
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY docker/update-data.sh /usr/local/bin/update-data
-COPY docker/dnscrypt-stats.sh /usr/local/bin/dnscrypt-stats
 # Standalone stats dashboard (replaces the LuCI statistics.js view).
 # Served by darkhttpd; the page calls the stats_api HTTP endpoints directly
 # (CORS is already Access-Control-Allow-Origin: * in the patched plugin).
 COPY docker/stats/ /usr/share/mosdns-stats/
-RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/update-data /usr/local/bin/dnscrypt-stats \
+RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/update-data \
     && mkdir -p /var/lib/mosdns /usr/share/v2ray /var/log
 
 ENV CONFIG=/etc/mosdns/config.yaml \
@@ -123,10 +122,6 @@ ENV CONFIG=/etc/mosdns/config.yaml \
     AUTO_UPDATE=1 \
     UPDATE_CHECK_INTERVAL=86400 \
     UPDATE_AT="" \
-    DNSCRYPT_METRICS_URL="" \
-    DNSCRYPT_USER="" \
-    DNSCRYPT_PASS="" \
-    DNSCRYPT_REFRESH=10 \
     MOSDNS_VERSION=${MOSDNS_VERSION} \
     MOSDNS_RELEASE=${MOSDNS_RELEASE} \
     BUILD_DATE=${BUILD_DATE}

@@ -32,15 +32,6 @@ services:
       # TZ: "Asia/Shanghai"
       # Manual trigger without restart:
       #   docker exec mosdns update-data
-
-      # --- dnscrypt-proxy statistics (optional) ---
-      # Fetched server-side with curl: dnscrypt-proxy sends no CORS headers, so
-      # the browser cannot read it directly. Credentials never leave the container.
-      # DNSCRYPT_METRICS_URL: "http://192.168.1.35:8080/api/metrics"
-      # DNSCRYPT_USER: "admin"
-      # DNSCRYPT_PASS: "your-password"
-      # DNSCRYPT_REFRESH: "10"   # seconds
-      # Set DNSCRYPT_STATS_SHOW=0 to hide the tab when unconfigured.
     volumes:
       # Persist config/rules/geo across recreates; comment out to use image defaults.
       - ./docker/config.yaml:/etc/mosdns/config.yaml:ro

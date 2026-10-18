@@ -136,29 +136,6 @@ if [ -d "$STATS_DIR" ]; then
     log "mosdns version: $v (release ${MOSDNS_RELEASE:-?})"
 fi
 
-# ---- dnscrypt-proxy metrics collector (server-side fetch) ----
-# dnscrypt-proxy serves no CORS headers, so the browser cannot read it directly;
-# this loop pulls the JSON into the page's own origin instead. Credentials stay
-# in the container and are never handed to the browser.
-if [ -n "${DNSCRYPT_METRICS_URL:-}" ] && [ -x /usr/local/bin/dnscrypt-stats ]; then
-    (
-        set +e
-        refresh="${DNSCRYPT_REFRESH:-10}"
-        case "$refresh" in ''|*[!0-9]*)
-            log "WARNING: invalid DNSCRYPT_REFRESH '$refresh', using 10."
-            refresh=10
-            ;;
-        esac
-        log "dnscrypt-proxy collector started (every ${refresh}s)."
-        while true; do
-            /usr/local/bin/dnscrypt-stats >/dev/null 2>&1
-            sleep "$refresh"
-        done
-    ) &
-elif [ -n "${DNSCRYPT_STATS_SHOW:-1}" ] && [ "${DNSCRYPT_STATS_SHOW}" != "0" ]; then
-    log "dnscrypt-proxy collector disabled (set DNSCRYPT_METRICS_URL to enable)."
-fi
-
 # --- next_wait start ---
 # next_wait "HH:MM[,HH:MM...]" -> prints seconds until the next occurrence.
 # Pure arithmetic on date +%H/%M/%S (no date -d, portable across GNU/busybox).
