@@ -8,12 +8,12 @@
 #
 # Build:
 #   docker build -t mosdns:5.3.4 .
-#   docker build --build-arg MOSDNS_VERSION=5.3.4 --build-arg MOSDNS_RELEASE=14 -t mosdns .
+#   docker build --build-arg MOSDNS_VERSION=5.3.4 --build-arg MOSDNS_RELEASE=15 -t mosdns .
 # Run:
 #   docker run -d --name mosdns -p 53:53/udp -p 53:53/tcp mosdns:5.3.4
 
 ARG MOSDNS_VERSION=5.3.4
-ARG MOSDNS_RELEASE=14
+ARG MOSDNS_RELEASE=15
 ARG GEO2TXT_VERSION=1.0.0
 # Branch, tag (or commit, needs full history) of sbwml/luci-app-mosdns
 # the patch set + rule files are taken from.

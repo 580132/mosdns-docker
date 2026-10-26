@@ -40,6 +40,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           CUR_MOSDNS="$(sed -n 's/^ARG MOSDNS_VERSION=//p' Dockerfile)"
+          CUR_RELEASE="$(sed -n 's/^ARG MOSDNS_RELEASE=//p' Dockerfile)"
           CUR_GEO="$(sed -n 's/^ARG GEO2TXT_VERSION=//p' Dockerfile)"
           CUR_REF="$(sed -n 's/^ARG PACKAGING_REF=//p' Dockerfile)"
           LOCK_SHA="$(python3 -c "import json;print(json.load(open('docker/upstream.lock'))['packaging_sha'])")"
@@ -125,36 +126,59 @@ jobs:
             fi
           fi
 
-          # ---------------- packaging branch commits ----------------
+          # ---------------- packaging branch commits + version pins ----------------
+          # The packaging Makefile is authoritative for PKG_VERSION / PKG_RELEASE /
+          # PKG_HASH: our Dockerfile pins them, and the build fetches the mosdns
+          # tarball directly from upstream. So syncing only the commit sha is not
+          # enough -- a pkgrel bump (e.g. r14 -> r15) must also update the pins.
           HEAD_SHA="$(gh api "repos/sbwml/luci-app-mosdns/commits/${CUR_REF}" --jq .sha)"
+          MK="$(curl -fsSL "https://raw.githubusercontent.com/sbwml/luci-app-mosdns/${CUR_REF}/mosdns/Makefile" || true)"
+          UP_VERSION="$(printf '%s' "$MK" | sed -n 's/^PKG_VERSION:=//p' | tr -d ' \r')"
+          UP_RELEASE="$(printf '%s' "$MK" | sed -n 's/^PKG_RELEASE:=//p' | tr -d ' \r')"
+          UP_HASH="$(printf '%s' "$MK" | sed -n 's/^PKG_HASH:=//p' | tr -d ' \r')"
           echo "packaging: locked=$LOCK_SHA head=$HEAD_SHA"
-          if [ "$HEAD_SHA" != "$LOCK_SHA" ]; then
+          echo "pins: version $CUR_MOSDNS->$UP_VERSION  release ${CUR_RELEASE:-?}->$UP_RELEASE"
+
+          changed=""
+          [ "$HEAD_SHA" != "$LOCK_SHA" ] && changed="commits"
+          [ -n "$UP_RELEASE" ] && [ "$UP_RELEASE" != "${CUR_RELEASE:-}" ] && changed="$changed pkgrel"
+          [ -n "$UP_VERSION" ] && [ "$UP_VERSION" != "$CUR_MOSDNS" ] && changed="$changed pkgver"
+
+          if [ -n "$changed" ]; then
             SHORT="$(echo "$HEAD_SHA" | cut -c1-12)"
             BR="upstream/packaging-${SHORT}"
             if pr_open "$BR"; then
               echo "PR already open for $BR, skipping."
             else
-              COMMITS="$(gh api "repos/sbwml/luci-app-mosdns/compare/${LOCK_SHA}...${HEAD_SHA}" --jq '.commits[] | "- " + (.commit.message | split("\n")[0])' || echo "- (compare unavailable)")"
+              COMMITS="$(gh api "repos/sbwml/luci-app-mosdns/compare/${LOCK_SHA}...${HEAD_SHA}" --jq '.commits[] | "- " + (.commit.message | split("\n")[0])' 2>/dev/null || echo "- (compare unavailable)")"
               git checkout -qB "$BR" v5
               printf '{\n  "packaging_ref": "%s",\n  "packaging_sha": "%s"\n}\n' "$CUR_REF" "$HEAD_SHA" > docker/upstream.lock
-              git add docker/upstream.lock
-              git commit -qm "sync packaging ${CUR_REF} to ${SHORT}"
+              [ -n "$UP_VERSION" ] && sed -i "s/^ARG MOSDNS_VERSION=.*/ARG MOSDNS_VERSION=${UP_VERSION}/" Dockerfile
+              [ -n "$UP_RELEASE" ] && sed -i "s/^ARG MOSDNS_RELEASE=.*/ARG MOSDNS_RELEASE=${UP_RELEASE}/" Dockerfile
+              [ -n "$UP_HASH" ] && sed -i "s/^ARG MOSDNS_HASH=.*/ARG MOSDNS_HASH=${UP_HASH}/" Dockerfile
+              git add Dockerfile docker/upstream.lock
+              git commit -qm "sync packaging ${CUR_REF} to ${SHORT} (pkgrel ${UP_RELEASE:-?})"
               push_br "$BR"
               BUILD="$(test_build "$BR")"
               {
-                echo "Upstream packaging branch \`${CUR_REF}\` has new commits (patch set may have changed)."
+                echo "Upstream packaging branch \`${CUR_REF}\` moved: **${changed# }**."
+                echo
+                echo "- Commit: \`${SHORT}\`"
+                echo "- Pins: \`${CUR_MOSDNS}\` → \`${UP_VERSION:-?}\`, pkgrel \`${CUR_RELEASE:-?}\` → \`${UP_RELEASE:-?}\`"
+                echo
+                echo "Commits since the locked revision:"
                 echo
                 echo "$COMMITS"
                 echo
                 echo "- Test build (linux/amd64, new patches applied): **${BUILD}**"
                 if [ "$BUILD" = "fail" ]; then
-                  echo "- The patch set may need attention. Check the Actions log of the check run."
+                  echo "- The patch set may need attention for these changes. Check the Actions log of the check run."
                 fi
                 echo
-                echo "Merging this PR triggers the image build (branch-tracked, so the next build picks the patches up either way)."
+                echo "Merging this PR triggers the image build."
               } > /tmp/pr-pack.md
               gh pr create --base v5 --head "$BR" \
-                --title "chore: sync packaging ${CUR_REF} to ${SHORT}" --body-file /tmp/pr-pack.md
+                --title "chore: sync packaging ${CUR_REF} to ${SHORT} (pkgrel ${UP_RELEASE:-?})" --body-file /tmp/pr-pack.md
             fi
           fi
 

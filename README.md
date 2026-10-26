@@ -61,7 +61,7 @@ volumes:
 ## 版本锁定
 
 ```bash
-docker build --build-arg MOSDNS_VERSION=5.3.4 --build-arg MOSDNS_RELEASE=14 \
+docker build --build-arg MOSDNS_VERSION=5.3.4 --build-arg MOSDNS_RELEASE=15 \
   --build-arg PACKAGING_REF=v5 --build-arg GEO2TXT_VERSION=1.0.0 -t mosdns .
 ```
 
