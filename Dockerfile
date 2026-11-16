@@ -14,7 +14,7 @@
 
 ARG MOSDNS_VERSION=5.3.4
 ARG MOSDNS_RELEASE=15
-ARG GEO2TXT_VERSION=1.0.0
+ARG GEO2TXT_VERSION=1.0.1
 # Branch, tag (or commit, needs full history) of sbwml/luci-app-mosdns
 # the patch set + rule files are taken from.
 ARG PACKAGING_REF=v5
